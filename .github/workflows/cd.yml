@@ -11,7 +11,14 @@ on:
 jobs:
   deploy:
     name: Deployer sur le VPS
-    runs-on: ubuntu-latest
+    # Runner self-hoste, installe directement sur le VPS cible : les
+    # runners GitHub-hoste (IP Azure) sont filtres par la protection
+    # reseau de l'hebergeur avant meme d'atteindre le port SSH. Le runner
+    # self-hoste execute Ansible en local, sans traverser Internet.
+    # Securite : ce workflow ne se declenche que sur push vers main ou
+    # workflow_dispatch (jamais sur pull_request), donc uniquement pour
+    # les personnes ayant deja un acces en ecriture au depot.
+    runs-on: [self-hosted, production]
     # Environnement protege (Settings -> Environments -> production, avec
     # "Required reviewers") : le job automatique se declenche bien sur push
     # vers main, mais reste en attente d'une validation manuelle explicite
@@ -20,33 +27,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Installer Ansible et les collections requises
-        run: |
-          pip install --quiet ansible
-          ansible-galaxy collection install -r ansible/requirements.yml
-
-      - name: Configurer la cle SSH de deploiement
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H 187.127.84.96 >> ~/.ssh/known_hosts
+      - name: Installer les collections Ansible requises
+        run: ansible-galaxy collection install -r ansible/requirements.yml
 
       - name: Preparer le mot de passe du vault Ansible
         run: printf '%s' "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > "$RUNNER_TEMP/vault_pass.txt"
 
-      - name: Deployer via Ansible (playbook complet, idempotent)
+      - name: Deployer via Ansible (playbook complet, idempotent, connexion locale)
         working-directory: ansible
         run: |
           ansible-playbook site.yml \
-            -i inventory/production.ini \
-            --private-key ~/.ssh/deploy_key \
+            -i inventory/production-local.ini \
             --vault-password-file "$RUNNER_TEMP/vault_pass.txt"
 
       - name: Nettoyer les fichiers sensibles
         if: always()
-        run: rm -f ~/.ssh/deploy_key "$RUNNER_TEMP/vault_pass.txt"
+        run: rm -f "$RUNNER_TEMP/vault_pass.txt"
