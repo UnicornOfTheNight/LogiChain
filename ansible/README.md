@@ -152,3 +152,41 @@ ansible-playbook site.yml -i inventory/production.ini --ask-vault-pass -e logich
 
 (Détail complet du rollback et des sauvegardes MongoDB : voir le Runbook à
 la racine du dépôt, chantier suivant.)
+
+## Déploiement continu (GitHub Actions)
+
+Le workflow `.github/workflows/cd.yml` exécute ce même `site.yml` depuis
+GitHub Actions à chaque push sur `main` touchant `logichain-api/**` ou
+`ansible/**` — mais reste **en attente d'une validation manuelle** grâce à
+un environnement GitHub protégé, avant de s'exécuter réellement.
+
+### 1. Créer l'environnement protégé `production`
+
+*Settings → Environments → New environment* → nom : `production` →
+*Required reviewers* : toi-même (et toute personne qui rejoindra le projet).
+
+### 2. Ajouter les secrets du dépôt
+
+*Settings → Secrets and variables → Actions → New repository secret* :
+
+| Secret                    | Valeur                                                        |
+|----------------------------|------------------------------------------------------------------|
+| `DEPLOY_SSH_PRIVATE_KEY`   | Contenu complet de `~/.ssh/logichain_deploy_ed25519` (la clé **privée**, jamais la `.pub`) |
+| `ANSIBLE_VAULT_PASSWORD`   | Le mot de passe choisi lors de `ansible-vault create group_vars/production/vault.yml` |
+
+Pour récupérer le contenu de la clé privée (dans WSL) :
+
+```bash
+cat ~/.ssh/logichain_deploy_ed25519
+```
+
+Copie tout, y compris les lignes `-----BEGIN OPENSSH PRIVATE KEY-----` et
+`-----END OPENSSH PRIVATE KEY-----`.
+
+### 3. Déclencher un déploiement
+
+- Automatiquement : merge une PR sur `main` touchant `logichain-api/` ou
+  `ansible/` → le job apparaît en attente dans l'onglet *Actions* →
+  *Review deployments* → *Approve and deploy*.
+- Manuellement : onglet *Actions* → *CD - Deploiement production* →
+  *Run workflow*.
