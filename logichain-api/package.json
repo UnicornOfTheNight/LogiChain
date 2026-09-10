@@ -1,0 +1,17 @@
+{
+  "name": "logichain-api",
+  "version": "1.0.0",
+  "description": "API LogiChain - zero framework, driver MongoDB officiel comme unique dependance",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test",
+    "load-test": "node scripts/loadTest.js",
+    "db:create": "node scripts/createCollections.js",
+    "db:seed": "node scripts/seedData.js"
+  },
+  "dependencies": {
+    "mongodb": "6.8.0"
+  }
+}

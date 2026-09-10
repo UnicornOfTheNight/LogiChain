@@ -1,0 +1,57 @@
+---
+# Variables non sensibles. Les secrets vont dans vault.yml (chiffré, non commité).
+
+# --- System & Security ---
+ssh_port: 22
+fail2ban_bantime: 1h
+fail2ban_findtime: 10m
+fail2ban_maxretry: 5
+service_user: logichain
+service_user_home: /opt/logichain
+
+# --- Web & Proxy ---
+# Pas de domaine pour l'instant : Nginx écoute sur un port dédié pour ne pas
+# entrer en conflit avec le vhost par défaut existant (Dromozic).
+# Une fois un sous-domaine DNS en place : passer enable_ssl à true et
+# renseigner domain_name + letsencrypt_email, puis ouvrir 80/443 (déjà prévu
+# dans le rôle system_security).
+nginx_listen_port: 8081
+enable_ssl: false
+domain_name: ""
+letsencrypt_email: ""
+
+# --- Application Runtime ---
+logichain_repo: https://github.com/UnicornOfTheNight/LogiChain.git
+logichain_version: main
+logichain_api_port: 4000
+node_env: production
+node_major_version: "22"
+
+# --- Database ---
+# true : aucune instance MongoDB n'est présente sur ce VPS (Dromozic utilise
+# PostgreSQL) -> le rôle installe et sécurise une instance MongoDB dédiée à
+# LogiChain (liée à 127.0.0.1 uniquement, authentification activée).
+mongodb_manage_installation: true
+mongodb_major_version: "7.0"
+mongodb_host: localhost
+mongodb_port: 27017
+logichain_db_name: logichain
+logichain_mongo_user: logichain_app
+# Forme attendue par community.mongodb.mongodb_index (un seul paramètre
+# `indexes`, database/collection/keys/options/state par index).
+logichain_indexes:
+  - database: "{{ logichain_db_name }}"
+    collection: users
+    keys: { email: 1 }
+    options: { name: users_email_unique, unique: true }
+    state: present
+  - database: "{{ logichain_db_name }}"
+    collection: items
+    keys: { qrCode: 1 }
+    options: { name: items_qrcode_unique, unique: true }
+    state: present
+  - database: "{{ logichain_db_name }}"
+    collection: movements
+    keys: { itemId: 1, createdAt: -1 }
+    options: { name: movements_itemid_createdat }
+    state: present

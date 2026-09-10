@@ -1,0 +1,6 @@
+---
+- name: Redémarrer mongod (post authentification)
+  ansible.builtin.systemd:
+    name: mongod
+    state: restarted
+  become: true

@@ -1,0 +1,150 @@
+---
+# --- Installation et sécurisation de MongoDB ---
+# Aucune instance MongoDB n'est présente sur ce VPS (Dromozic utilise
+# PostgreSQL) : on en installe une dédiée à LogiChain, liée à 127.0.0.1
+# uniquement (valeur par défaut du paquet officiel, non exposée sur le
+# réseau).
+#
+# Ordre important : l'utilisateur admin doit être créé AVANT d'activer
+# `authorization` (aucune authentification n'est requise tant que ce
+# paramètre n'est pas activé). L'activer avant de créer l'utilisateur
+# bloquerait complètement l'accès, y compris à Ansible lui-même.
+
+# Les modules community.mongodb exigent pymongo >= 4 ; le paquet apt
+# python3-pymongo d'Ubuntu 22.04 fournit une version 3.x trop ancienne, d'où
+# l'installation via pip.
+- name: Installer pip
+  ansible.builtin.apt:
+    name: python3-pip
+    state: present
+  become: true
+
+- name: Installer pymongo >= 4 (requis par les modules community.mongodb)
+  ansible.builtin.pip:
+    name: "pymongo>=4.0"
+    state: present
+  become: true
+
+- name: (Installation) Provisionner une instance MongoDB dédiée à LogiChain
+  when: mongodb_manage_installation | bool
+  become: true
+  block:
+    - name: Créer le répertoire des clés APT
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Importer la clé GPG officielle MongoDB
+      ansible.builtin.get_url:
+        url: "https://pgp.mongodb.com/server-{{ mongodb_major_version }}.asc"
+        dest: "/etc/apt/keyrings/mongodb-server-{{ mongodb_major_version }}.asc"
+        mode: "0644"
+
+    - name: Ajouter le dépôt APT MongoDB
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [signed-by=/etc/apt/keyrings/mongodb-server-{{ mongodb_major_version }}.asc arch=amd64]
+          https://repo.mongodb.org/apt/ubuntu {{ ansible_distribution_release }}/mongodb-org/{{ mongodb_major_version }} multiverse
+        state: present
+        filename: "mongodb-org-{{ mongodb_major_version }}"
+
+    - name: Installer MongoDB Community
+      ansible.builtin.apt:
+        name: mongodb-org
+        state: present
+        update_cache: true
+
+    - name: Démarrer mongod
+      ansible.builtin.systemd:
+        name: mongod
+        state: started
+        enabled: true
+
+    - name: Attendre que MongoDB accepte les connexions
+      ansible.builtin.wait_for:
+        host: "{{ mongodb_host }}"
+        port: "{{ mongodb_port }}"
+        timeout: 30
+
+    # Idempotent quel que soit le point de départ : si l'admin existe déjà
+    # (authentification déjà active), cette tentative authentifiée suffit à
+    # elle seule à le vérifier/mettre à jour. Ce n'est qu'à la toute première
+    # installation (authentification pas encore activée, aucun utilisateur)
+    # qu'elle échoue et qu'on bascule sur la création sans identifiants.
+    - name: Vérifier/mettre à jour l'utilisateur administrateur MongoDB (déjà authentifié)
+      community.mongodb.mongodb_user:
+        login_host: "{{ mongodb_host }}"
+        login_port: "{{ mongodb_port }}"
+        login_user: "{{ vault_mongodb_admin_user }}"
+        login_password: "{{ vault_mongodb_admin_password }}"
+        login_database: admin
+        database: admin
+        name: "{{ vault_mongodb_admin_user }}"
+        password: "{{ vault_mongodb_admin_password }}"
+        roles: &admin_roles
+          - db: admin
+            role: userAdminAnyDatabase
+          - db: admin
+            role: readWriteAnyDatabase
+          - db: admin
+            role: clusterAdmin
+        update_password: on_create # idempotent : ne réapplique pas le mot de passe à chaque run
+        state: present
+      register: mongo_admin_ensure
+      ignore_errors: true
+
+    - name: Créer l'utilisateur administrateur MongoDB (première installation, authentification pas encore activée)
+      community.mongodb.mongodb_user:
+        login_host: "{{ mongodb_host }}"
+        login_port: "{{ mongodb_port }}"
+        database: admin
+        name: "{{ vault_mongodb_admin_user }}"
+        password: "{{ vault_mongodb_admin_password }}"
+        roles: *admin_roles
+        state: present
+      when: mongo_admin_ensure is failed
+
+    - name: Activer l'authentification MongoDB
+      ansible.builtin.blockinfile:
+        path: /etc/mongod.conf
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - security"
+        block: |
+          security:
+            authorization: enabled
+      notify: Redémarrer mongod (post authentification)
+
+    - name: Appliquer immédiatement le redémarrage si la configuration a changé
+      ansible.builtin.meta: flush_handlers
+
+# --- Provisionnement additif de la base applicative ---
+# Que MongoDB vienne d'être installé ci-dessus ou qu'il existe déjà
+# (mongodb_manage_installation: false sur un autre serveur), on ne touche
+# jamais à la configuration globale ici : on crée uniquement une base et un
+# utilisateur dédiés à LogiChain, avec le principe du moindre privilège
+# (accès readWrite limité à cette seule base).
+
+- name: Créer l'utilisateur applicatif LogiChain
+  community.mongodb.mongodb_user:
+    login_host: "{{ mongodb_host }}"
+    login_port: "{{ mongodb_port }}"
+    login_user: "{{ vault_mongodb_admin_user }}"
+    login_password: "{{ vault_mongodb_admin_password }}"
+    login_database: admin
+    database: "{{ logichain_db_name }}"
+    name: "{{ logichain_mongo_user }}"
+    password: "{{ vault_logichain_mongo_password }}"
+    update_password: on_create # idempotent ; pour changer ce mot de passe plus tard, repasser temporairement à "always"
+    roles:
+      - db: "{{ logichain_db_name }}"
+        role: readWrite
+    state: present
+
+- name: Créer les index initiaux de LogiChain
+  community.mongodb.mongodb_index:
+    login_host: "{{ mongodb_host }}"
+    login_port: "{{ mongodb_port }}"
+    login_user: "{{ vault_mongodb_admin_user }}"
+    login_password: "{{ vault_mongodb_admin_password }}"
+    login_database: admin
+    indexes: "{{ logichain_indexes }}"

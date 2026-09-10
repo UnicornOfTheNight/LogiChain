@@ -1,0 +1,17 @@
+---
+# Modèle du fichier de secrets. Le vrai fichier s'appelle vault.yml (sans
+# .example), n'est JAMAIS commité en clair (voir ansible/.gitignore), et doit
+# être créé/chiffré localement avec :
+#
+#   ansible-vault create group_vars/production/vault.yml
+#
+# (copier-coller ce contenu dedans, puis remplacer les valeurs CHANGE_ME)
+#
+# Pour l'éditer ensuite :
+#   ansible-vault edit group_vars/production/vault.yml
+
+vault_mongodb_admin_user: admin
+vault_mongodb_admin_password: CHANGE_ME
+vault_logichain_mongo_password: CHANGE_ME_mot_de_passe_fort_genere_aleatoirement
+vault_jwt_access_secret: CHANGE_ME_chaine_aleatoire_64_caracteres
+vault_jwt_refresh_secret: CHANGE_ME_autre_chaine_aleatoire_64_caracteres

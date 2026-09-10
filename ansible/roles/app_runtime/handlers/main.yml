@@ -1,0 +1,6 @@
+---
+- name: Redémarrer logichain-api
+  ansible.builtin.systemd:
+    name: logichain-api
+    state: restarted
+  become: true
