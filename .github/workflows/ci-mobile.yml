@@ -1,0 +1,35 @@
+name: CI - Mobile
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "logichain-mobile/**"
+      - ".github/workflows/ci-mobile.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "logichain-mobile/**"
+      - ".github/workflows/ci-mobile.yml"
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: logichain-mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: logichain-mobile/package-lock.json
+
+      - name: Installer les dependances (versions figees du lockfile)
+        run: npm ci
+
+      - name: Verification des types TypeScript
+        run: npm run typecheck
