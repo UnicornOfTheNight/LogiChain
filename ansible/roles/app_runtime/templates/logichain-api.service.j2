@@ -1,0 +1,15 @@
+[Unit]
+Description=LogiChain API (pm2-runtime)
+After=network.target
+
+[Service]
+Type=simple
+User={{ service_user }}
+WorkingDirectory={{ service_user_home }}/app/logichain-api
+ExecStart=/usr/bin/pm2-runtime start src/server.js --name logichain-api
+Restart=always
+RestartSec=5
+Environment=NODE_ENV={{ node_env }}
+
+[Install]
+WantedBy=multi-user.target

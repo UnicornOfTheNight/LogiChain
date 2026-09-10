@@ -1,0 +1,64 @@
+---
+- name: Installer Nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+  become: true
+
+- name: Déployer le vhost dédié à LogiChain (sans toucher aux autres sites déjà présents)
+  ansible.builtin.template:
+    src: logichain.conf.j2
+    dest: /etc/nginx/sites-available/logichain.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Recharger nginx
+
+- name: Activer le site LogiChain
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/logichain.conf
+    dest: /etc/nginx/sites-enabled/logichain.conf
+    state: link
+  become: true
+  notify: Recharger nginx
+
+# `validate` sur le template ci-dessus est impossible ici : `nginx -t`
+# nécessite un fichier de config complet (events{}/http{}), pas un simple
+# fragment server{}. On valide donc après coup, une fois le site activé.
+# Tâche en lecture seule (changed_when: false) : c'est la garde explicite
+# qui rend ce `command` acceptable malgré la règle anti-shell-brut.
+- name: Vérifier la configuration Nginx
+  ansible.builtin.command: nginx -t
+  become: true
+  changed_when: false
+
+- name: S'assurer que Nginx est démarré et activé
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+    enabled: true
+  become: true
+
+- name: Certificat SSL/TLS Let's Encrypt (uniquement si un domaine est configuré)
+  when: enable_ssl | bool and domain_name | length > 0
+  become: true
+  block:
+    - name: Installer certbot
+      ansible.builtin.apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+
+    - name: Générer le certificat pour {{ domain_name }}
+      ansible.builtin.command: >
+        certbot --nginx -d {{ domain_name }}
+        --non-interactive --agree-tos -m {{ letsencrypt_email }} --redirect
+      args:
+        creates: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
+      # Exception documentée à la règle "pas de shell/command sans garde" :
+      # aucun module Ansible natif ne pilote certbot. Le `creates` rend la
+      # tâche idempotente (elle ne s'exécute qu'une seule fois). Désactivé
+      # par défaut (enable_ssl: false) tant qu'aucun domaine n'est pointé.

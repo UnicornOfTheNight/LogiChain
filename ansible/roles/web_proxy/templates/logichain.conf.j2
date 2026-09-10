@@ -1,0 +1,24 @@
+server {
+    listen {{ nginx_listen_port }};
+    listen [::]:{{ nginx_listen_port }};
+{% if domain_name %}
+    server_name {{ domain_name }};
+{% else %}
+    server_name {{ ansible_host | default(inventory_hostname) }};
+{% endif %}
+
+    access_log /var/log/nginx/logichain.access.log;
+    error_log  /var/log/nginx/logichain.error.log;
+
+    location / {
+        proxy_pass http://127.0.0.1:{{ logichain_api_port }};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
