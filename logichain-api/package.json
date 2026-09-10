@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "lint": "eslint .",
     "test": "node --test",
     "load-test": "node scripts/loadTest.js",
     "db:create": "node scripts/createCollections.js",
@@ -13,5 +14,10 @@
   },
   "dependencies": {
     "mongodb": "6.8.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.10.0",
+    "globals": "17.12.0"
   }
 }

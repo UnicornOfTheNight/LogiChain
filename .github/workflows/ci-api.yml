@@ -1,0 +1,56 @@
+name: CI - API
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "logichain-api/**"
+      - ".github/workflows/ci-api.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "logichain-api/**"
+      - ".github/workflows/ci-api.yml"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: logichain-api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: logichain-api/package-lock.json
+
+      - name: Installer les dependances (versions figees du lockfile)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: logichain-api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: logichain-api/package-lock.json
+
+      - name: Installer les dependances (versions figees du lockfile)
+        run: npm ci
+
+      - name: Tests unitaires et d'integration
+        run: npm test
