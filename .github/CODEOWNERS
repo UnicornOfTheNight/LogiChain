@@ -1,0 +1,10 @@
+# Revue de code obligatoire : ces propriétaires sont automatiquement
+# demandés en review sur toute PR touchant les chemins ci-dessous.
+# (à combiner avec la règle "Require review from Code Owners" dans les
+# branch protection rules de main/develop)
+
+*                       @UnicornOfTheNight
+/logichain-api/         @UnicornOfTheNight
+/logichain-mobile/      @UnicornOfTheNight
+/ansible/               @UnicornOfTheNight
+/.github/workflows/     @UnicornOfTheNight

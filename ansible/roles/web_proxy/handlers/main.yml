@@ -1,0 +1,6 @@
+---
+- name: Recharger nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded
+  become: true

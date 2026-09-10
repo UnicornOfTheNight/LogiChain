@@ -1,0 +1,57 @@
+---
+# Playbook de bootstrap — À LANCER UNE SEULE FOIS, avant site.yml.
+#
+# Se connecte en root (mot de passe demandé de façon interactive, jamais
+# stocké) pour créer un utilisateur sudo dédié et y déposer une clé SSH.
+# Une fois ce playbook passé, on utilise exclusivement cet utilisateur —
+# site.yml se charge ensuite de désactiver le login root et l'auth par
+# mot de passe.
+#
+# Usage :
+#   ansible-playbook bootstrap.yml -i inventory/bootstrap.ini --ask-pass \
+#     -e deploy_user=deploy \
+#     -e deploy_public_key_path=~/.ssh/logichain_deploy_ed25519.pub
+
+- name: Bootstrap - créer l'utilisateur sudo et installer la clé SSH
+  hosts: bootstrap
+  become: false # on est déjà root via --ask-pass
+  gather_facts: true
+
+  tasks:
+    - name: Vérifier que les variables requises sont fournies
+      ansible.builtin.assert:
+        that:
+          - deploy_user is defined
+          - deploy_public_key_path is defined
+        fail_msg: >
+          Relance avec -e deploy_user=... -e deploy_public_key_path=...
+          (voir le commentaire en tête de ce fichier).
+
+    - name: Créer l'utilisateur sudo de déploiement
+      ansible.builtin.user:
+        name: "{{ deploy_user }}"
+        groups: sudo
+        append: true
+        shell: /bin/bash
+        create_home: true
+
+    - name: Autoriser ce compte à faire sudo sans mot de passe (nécessaire pour le déploiement automatisé en CI/CD)
+      community.general.sudoers:
+        name: "{{ deploy_user }}-nopasswd"
+        user: "{{ deploy_user }}"
+        commands: ALL
+        nopassword: true
+
+    - name: Déposer la clé publique SSH de {{ deploy_user }}
+      ansible.posix.authorized_key:
+        user: "{{ deploy_user }}"
+        state: present
+        key: "{{ lookup('file', deploy_public_key_path) }}"
+
+    - name: Afficher un rappel de vérification
+      ansible.builtin.debug:
+        msg: >-
+          Utilisateur {{ deploy_user }} créé. AVANT de lancer site.yml,
+          vérifie dans un NOUVEAU terminal que la connexion fonctionne :
+          ssh -i <clé privée correspondante> {{ deploy_user }}@{{ ansible_host }}
+          puis "sudo whoami" (doit répondre "root" sans mot de passe).

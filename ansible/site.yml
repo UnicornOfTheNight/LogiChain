@@ -1,0 +1,13 @@
+---
+- name: Provisionnement et déploiement complet du serveur LogiChain
+  hosts: production
+  become: true
+  roles:
+    - role: system_security
+      tags: [system_security]
+    - role: database
+      tags: [database]
+    - role: web_proxy
+      tags: [web_proxy]
+    - role: app_runtime
+      tags: [app_runtime]

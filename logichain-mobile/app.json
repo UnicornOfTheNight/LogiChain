@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "LogiChain Terrain",
+    "slug": "logichain-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "backgroundColor": "#1565c0"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1565c0"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      ["expo-camera", { "cameraPermission": "LogiChain utilise la camera pour scanner les QR codes/codes-barres du materiel." }],
+      ["expo-location", { "locationAlwaysAndWhenInUsePermission": "LogiChain utilise la localisation pour geolocaliser les scans et anomalies." }]
+    ]
+  }
+}
