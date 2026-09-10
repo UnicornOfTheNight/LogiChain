@@ -41,7 +41,16 @@
 # de service) puis rechownent le résultat à la fin. Utiliser become_user ici
 # déclenche un bug connu d'Ansible (partage des fichiers temporaires par ACL
 # entre l'utilisateur de connexion et l'utilisateur cible), qui échoue sur ce
-# système ("chmod: invalid mode: 'A+user:...:allow'").
+# système ("chmod: invalid mode: 'A+user:...:allow'"). Conséquence : le
+# dépôt appartient à "logichain" alors que git tourne en root -> il faut
+# explicitement déclarer ce répertoire comme sûr ("dubious ownership").
+
+- name: Autoriser Git à opérer sur le dépôt malgré le changement de propriétaire
+  community.general.git_config:
+    name: safe.directory
+    scope: global
+    value: "{{ service_user_home }}/app"
+  become: true
 
 - name: Cloner/mettre à jour le dépôt LogiChain
   ansible.builtin.git:
