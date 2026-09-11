@@ -55,3 +55,7 @@ logichain_indexes:
     keys: { itemId: 1, createdAt: -1 }
     options: { name: movements_itemid_createdat }
     state: present
+
+# Sauvegardes MongoDB (mongodump quotidien, retention en jours)
+mongodb_backup_dir: /var/backups/logichain-mongodb
+mongodb_backup_retention_days: 7
