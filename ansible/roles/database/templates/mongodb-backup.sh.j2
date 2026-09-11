@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Genere par Ansible (roles/database) - ne pas modifier a la main sur le
+# serveur, modifier le template et rejouer le playbook.
+#
+# Sauvegarde quotidienne de la base LogiChain via mongodump, avec purge des
+# archives de plus de {{ mongodb_backup_retention_days }} jours.
+set -euo pipefail
+
+BACKUP_DIR="{{ mongodb_backup_dir }}"
+TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
+ARCHIVE="${BACKUP_DIR}/logichain-${TIMESTAMP}.archive.gz"
+
+mkdir -p "$BACKUP_DIR"
+
+mongodump \
+  --host="{{ mongodb_host }}" \
+  --port="{{ mongodb_port }}" \
+  --username="{{ vault_mongodb_admin_user }}" \
+  --password="{{ vault_mongodb_admin_password }}" \
+  --authenticationDatabase=admin \
+  --db="{{ logichain_db_name }}" \
+  --archive="$ARCHIVE" \
+  --gzip
+
+echo "Sauvegarde creee : $ARCHIVE"
+
+find "$BACKUP_DIR" -name 'logichain-*.archive.gz' -mtime "+{{ mongodb_backup_retention_days }}" -delete

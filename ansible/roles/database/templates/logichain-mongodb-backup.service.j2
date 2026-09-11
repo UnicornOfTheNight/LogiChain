@@ -1,0 +1,6 @@
+[Unit]
+Description=Sauvegarde MongoDB LogiChain (mongodump)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/logichain-mongodb-backup.sh
