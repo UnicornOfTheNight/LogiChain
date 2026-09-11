@@ -1,4 +1,5 @@
-group_vars/production/vault.yml
+# vault.yml est chiffré (Ansible Vault) : il DOIT etre commite, c'est
+# le mot de passe de dechiffrement (ANSIBLE_VAULT_PASSWORD) qui reste secret.
 *.retry
 .vault_pass
 *.pem
