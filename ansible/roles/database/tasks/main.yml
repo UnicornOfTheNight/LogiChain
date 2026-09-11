@@ -148,3 +148,49 @@
     login_password: "{{ vault_mongodb_admin_password }}"
     login_database: admin
     indexes: "{{ logichain_indexes }}"
+
+# --- Sauvegardes automatiques ---
+# mongodump/mongorestore sont fournis par un paquet séparé depuis MongoDB
+# 4.4+ (mongodb-database-tools), pas par mongodb-org.
+
+- name: Installer les outils de sauvegarde MongoDB (mongodump/mongorestore)
+  ansible.builtin.apt:
+    name: mongodb-database-tools
+    state: present
+  become: true
+
+- name: Déployer le script de sauvegarde MongoDB
+  ansible.builtin.template:
+    src: mongodb-backup.sh.j2
+    dest: /usr/local/bin/logichain-mongodb-backup.sh
+    owner: root
+    group: root
+    mode: "0700" # contient les identifiants admin MongoDB : lisible par root uniquement
+  become: true
+
+- name: Déployer le service systemd de sauvegarde
+  ansible.builtin.template:
+    src: logichain-mongodb-backup.service.j2
+    dest: /etc/systemd/system/logichain-mongodb-backup.service
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Déployer le timer systemd de sauvegarde (quotidien)
+  ansible.builtin.template:
+    src: logichain-mongodb-backup.timer.j2
+    dest: /etc/systemd/system/logichain-mongodb-backup.timer
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  register: backup_timer_file
+
+- name: Activer et démarrer le timer de sauvegarde
+  ansible.builtin.systemd:
+    daemon_reload: "{{ backup_timer_file.changed }}"
+    name: logichain-mongodb-backup.timer
+    enabled: true
+    state: started
+  become: true

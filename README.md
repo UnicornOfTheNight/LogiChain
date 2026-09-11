@@ -32,6 +32,7 @@ revue de code, Pull Requests) est décrite dans
 
 ## Déploiement & exploitation
 
-Le provisionnement du serveur de production (Ansible) et la procédure
-d'exploitation (déploiement, rollback, sauvegardes MongoDB) sont décrits
-dans `ansible/README.md` et `RUNBOOK.md` (à venir).
+Le provisionnement du serveur de production (Ansible) est décrit dans
+[`ansible/README.md`](ansible/README.md) ; la procédure d'exploitation
+(déploiement, rollback, sauvegardes MongoDB, incidents connus) dans
+[`RUNBOOK.md`](RUNBOOK.md).
