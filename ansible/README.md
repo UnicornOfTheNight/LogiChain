@@ -160,28 +160,59 @@ GitHub Actions à chaque push sur `main` touchant `logichain-api/**` ou
 `ansible/**` — mais reste **en attente d'une validation manuelle** grâce à
 un environnement GitHub protégé, avant de s'exécuter réellement.
 
+### 0. Runner self-hébergé (obligatoire sur cet hébergeur)
+
+Les runners GitHub-hébergés (IP Azure) sont filtrés par la protection
+réseau anti-scan de l'hébergeur (Hostinger) avant même d'atteindre le port
+SSH du VPS (`Connection timed out`, alors qu'UFW et le pare-feu Hostinger
+sont tous les deux corrects) — aucun pare-feu client-visible ne l'explique,
+c'est une protection réseau en amont. La solution : un runner **self-hébergé
+directement sur le VPS cible**, qui exécute Ansible en connexion locale
+(`ansible_connection=local`, voir `inventory/production-local.ini`), sans
+jamais traverser Internet.
+
+Déjà en place sur ce VPS (utilisateur `deploy`, service systemd) :
+
+```bash
+# Sur le VPS, en tant que deploy :
+mkdir ~/actions-runner && cd ~/actions-runner
+curl -o actions-runner-linux-x64-<version>.tar.gz -L <url fournie par GitHub>
+tar xzf ./actions-runner-linux-x64-<version>.tar.gz
+./config.sh --url https://github.com/UnicornOfTheNight/LogiChain --token <TOKEN> \
+  --unattended --name logichain-vps --labels self-hosted,production
+sudo ./svc.sh install deploy
+sudo ./svc.sh start
+
+# Ansible installé system-wide pour que le service systemd le trouve :
+sudo python3 -m pip install ansible
+```
+
+Le token de `./config.sh` (*Settings → Actions → Runners → New self-hosted
+runner*) expire au bout d'environ une heure ; à refaire si le runner doit
+être ré-enregistré. Vérifier l'état : `sudo systemctl status
+actions.runner.*`.
+
+**Sécurité** : ce workflow ne se déclenche que sur `push` vers `main` ou
+`workflow_dispatch` — jamais sur `pull_request` — donc uniquement pour des
+personnes ayant déjà un accès en écriture au dépôt (contrairement au risque
+classique des runners self-hébergés exposés aux PR de forks externes).
+
 ### 1. Créer l'environnement protégé `production`
 
 *Settings → Environments → New environment* → nom : `production` →
 *Required reviewers* : toi-même (et toute personne qui rejoindra le projet).
 
-### 2. Ajouter les secrets du dépôt
+### 2. Ajouter le secret du dépôt
 
 *Settings → Secrets and variables → Actions → New repository secret* :
 
 | Secret                    | Valeur                                                        |
 |----------------------------|------------------------------------------------------------------|
-| `DEPLOY_SSH_PRIVATE_KEY`   | Contenu complet de `~/.ssh/logichain_deploy_ed25519` (la clé **privée**, jamais la `.pub`) |
 | `ANSIBLE_VAULT_PASSWORD`   | Le mot de passe choisi lors de `ansible-vault create group_vars/production/vault.yml` |
 
-Pour récupérer le contenu de la clé privée (dans WSL) :
-
-```bash
-cat ~/.ssh/logichain_deploy_ed25519
-```
-
-Copie tout, y compris les lignes `-----BEGIN OPENSSH PRIVATE KEY-----` et
-`-----END OPENSSH PRIVATE KEY-----`.
+(`DEPLOY_SSH_PRIVATE_KEY` n'est plus utilisé par `cd.yml` depuis le passage
+au runner self-hébergé en connexion locale — inutile de le recréer, mais tu
+peux garder l'ancien secret ou le supprimer, au choix.)
 
 ### 3. Déclencher un déploiement
 
